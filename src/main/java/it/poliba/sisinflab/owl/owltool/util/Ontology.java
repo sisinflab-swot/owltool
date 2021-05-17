@@ -51,7 +51,7 @@ public final class Ontology {
             }
         }
 
-        try (OutputStream outStream = new FileOutputStream(new File(path))) {
+        try (OutputStream outStream = new FileOutputStream(path)) {
             mgr.saveOntology(onto, outputFormat, outStream);
         } catch (OWLOntologyStorageException ex) {
             throw new IOException(ex);
@@ -90,7 +90,7 @@ public final class Ontology {
             line.append(equivalents.get(i).getIRI().toString());
         }
 
-        stream.println(line.toString());
+        stream.println(line);
 
         equivalents.stream()
                    .flatMap(ontology::subClassAxiomsForSuperClass)
