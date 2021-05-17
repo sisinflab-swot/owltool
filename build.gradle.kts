@@ -13,8 +13,9 @@ repositories {
 }
 
 dependencies {
-    implementation("net.sourceforge.owlapi", "owlapi-distribution", "5.1.11")
-    implementation("com.beust", "jcommander", "1.78")
+    implementation("net.sourceforge.owlapi", "owlapi-distribution", "5.1.17")
+    implementation("com.beust", "jcommander", "1.81")
+    implementation("org.slf4j", "slf4j-nop", "1.7.30")
 }
 
 configure<JavaPluginConvention> {
@@ -24,6 +25,7 @@ configure<JavaPluginConvention> {
 val fatJar = task("fatJar", type = Jar::class) {
     group = BasePlugin.BUILD_GROUP
     description = "Assembles a jar archive containing all classes, including those of dependencies."
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
     manifest {
         attributes["Implementation-Title"] = project.name
         attributes["Implementation-Version"] = project.version
@@ -38,5 +40,5 @@ tasks.build {
 }
 
 tasks.wrapper {
-    gradleVersion = "5.6.2"
+    gradleVersion = "7.0.2"
 }
