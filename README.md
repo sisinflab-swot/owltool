@@ -17,4 +17,4 @@ OWLTool is distributed under the [Eclipse Public License, Version 2.0][epl2].
 [java]: https://java.com
 [gradle]: https://gradle.org
 [poliba]: http://www.poliba.it
-[swot]: http://sisinflab.poliba.it/swottools
+[swot]: http://swot.sisinflab.poliba.it
