@@ -1,26 +1,15 @@
 package it.poliba.sisinflab.owl.owltool.util;
 
 import org.semanticweb.owlapi.apibinding.OWLManager;
-import org.semanticweb.owlapi.model.OWLClass;
-import org.semanticweb.owlapi.model.OWLClassExpression;
-import org.semanticweb.owlapi.model.OWLDocumentFormat;
-import org.semanticweb.owlapi.model.OWLEquivalentClassesAxiom;
-import org.semanticweb.owlapi.model.OWLOntology;
-import org.semanticweb.owlapi.model.OWLOntologyCreationException;
-import org.semanticweb.owlapi.model.OWLOntologyManager;
-import org.semanticweb.owlapi.model.OWLOntologyStorageException;
-import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
+import org.semanticweb.owlapi.model.*;
+import org.semanticweb.owlapi.search.EntitySearcher;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -58,10 +47,23 @@ public final class Ontology {
         }
     }
 
+    private static void addImplicitTopSubClassOfAxioms(OWLOntology onto, Map<OWLClass, List<OWLClass>> cache) {
+        OWLDataFactory factory = onto.getOWLOntologyManager().getOWLDataFactory();
+        OWLClass thing = factory.getOWLThing();
+
+        onto.classesInSignature().forEach(c -> {
+            List<OWLClass> eq = equivalentClassesForClass(c, onto, cache);
+            if (!eq.get(0).isOWLThing() && !eq.get(0).isOWLNothing() &&
+                    !eq.stream().flatMap(onto::subClassAxiomsForSubClass).findAny().isPresent()) {
+                OWLSubClassOfAxiom axiom = factory.getOWLSubClassOfAxiom(eq.get(0), thing);
+                onto.addAxiom(axiom);
+            }
+        });
+    }
+
     public static void printTaxonomy(OWLOntology onto, String path) throws IOException {
-        OWLOntologyManager mgr = onto.getOWLOntologyManager();
-        OWLClass top = mgr.getOWLDataFactory().getOWLThing();
         Map<OWLClass, List<OWLClass>> cache = new HashMap<>();
+        addImplicitTopSubClassOfAxioms(onto, cache);
 
         PrintStream stream;
 
@@ -71,18 +73,19 @@ public final class Ontology {
             stream = new PrintStream(new FileOutputStream(path));
         }
 
-        printSubTaxonomy(stream, top, onto, 0, cache);
+        OWLClass thing = onto.getOWLOntologyManager().getOWLDataFactory().getOWLThing();
+        printSubTaxonomy(stream, thing, onto, 0, cache);
     }
 
     private static void printSubTaxonomy(PrintStream stream, OWLClass owlClass,
                                          OWLOntology ontology, int depth, Map<OWLClass,
                                          List<OWLClass>> cache) {
-        if (owlClass.isOWLNothing()) return;
+        List<OWLClass> equivalents = equivalentClassesForClass(owlClass, ontology, cache);
+        if (equivalents.get(0).isOWLNothing()) return;
 
         StringBuilder line = new StringBuilder();
         for (int i = 0; i < depth; ++i) line.append("\t");
 
-        List<OWLClass> equivalents = equivalentClassesForClass(owlClass, ontology, cache);
         line.append(equivalents.get(0).getIRI().toString());
 
         for (int i = 1; i < equivalents.size(); ++i) {
@@ -105,36 +108,38 @@ public final class Ontology {
     private static List<OWLClass> equivalentClassesForClass(OWLClass owlClass,
                                                             OWLOntology ontology,
                                                             Map<OWLClass, List<OWLClass>> cache) {
-        List<OWLClass> equivalents = cache.get(owlClass);
-        if (equivalents != null) return equivalents;
+        List<OWLClass> ret = cache.get(owlClass);
+        if (ret != null) return ret;
 
-        if (ontology.equivalentClassesAxioms(owlClass).count() == 0) {
-            return Collections.singletonList(owlClass);
-        }
+        Set<OWLClass> eq = EntitySearcher.getEquivalentClasses(owlClass, ontology)
+                .filter(AsOWLClass::isOWLClass)
+                .map(AsOWLClass::asOWLClass)
+                .collect(Collectors.toSet());
+        eq.add(owlClass);
 
-        final boolean reserved = owlClass.isOWLThing() || owlClass.isOWLNothing();
-
-        Stream<OWLClass> clsStream;
-        clsStream = ontology.equivalentClassesAxioms(owlClass)
-                            .flatMap(OWLEquivalentClassesAxiom::classesInSignature);
-
-        if (reserved) {
-            clsStream = clsStream.filter(c -> !c.equals(owlClass));
+        if (eq.size() == 1) {
+            ret = Collections.singletonList(owlClass);
         } else {
-            clsStream = Stream.concat(clsStream, Stream.of(owlClass));
+            OWLDataFactory f = ontology.getOWLOntologyManager().getOWLDataFactory();
+            OWLClass thing = f.getOWLThing();
+            OWLClass nothing = f.getOWLNothing();
+
+            if (eq.contains(nothing)) {
+                ret = Collections.singletonList(nothing);
+            } else if (eq.remove(thing)) {
+                Stream<OWLClass> tmp = eq.stream().sorted(Comparator.comparing(c -> c.getIRI().toString()));
+                ret = Stream.concat(Stream.of(thing), tmp).collect(Collectors.toList());
+                eq.add(thing);
+            } else {
+                ret = eq.stream().sorted(Comparator.comparing(c -> c.getIRI().toString())).collect(Collectors.toList());
+            }
         }
 
-        clsStream = clsStream.distinct()
-                             .sorted(Comparator.comparing(c -> c.getIRI().toString()));
-
-        if (reserved) {
-            clsStream = Stream.concat(Stream.of(owlClass), clsStream);
+        for (OWLClass cls : eq) {
+            cache.put(cls, ret);
         }
 
-        equivalents = clsStream.collect(Collectors.toList());
-        cache.put(owlClass, equivalents);
-
-        return equivalents;
+        return ret;
     }
 
     private Ontology() { /* Disallow instantiation */ }
