@@ -81,19 +81,18 @@ public final class Ontology {
                                          OWLOntology ontology, int depth, Map<OWLClass,
                                          List<OWLClass>> cache) {
         List<OWLClass> equivalents = equivalentClassesForClass(owlClass, ontology, cache);
-        if (equivalents.get(0).isOWLNothing()) return;
+        OWLClass first = equivalents.get(0);
+        if (first.isOWLNothing() || (first.isOWLThing() && depth > 0)) return;
 
-        StringBuilder line = new StringBuilder();
-        for (int i = 0; i < depth; ++i) line.append("\t");
-
-        line.append(equivalents.get(0).getIRI().toString());
+        for (int i = 0; i < depth; ++i) stream.print('\t');
+        stream.print(first.getIRI().toString());
 
         for (int i = 1; i < equivalents.size(); ++i) {
-            line.append(" = ");
-            line.append(equivalents.get(i).getIRI().toString());
+            stream.print(" = ");
+            stream.print(equivalents.get(i).getIRI().toString());
         }
 
-        stream.println(line);
+        stream.println();
 
         equivalents.stream()
                    .flatMap(ontology::subClassAxiomsForSuperClass)
@@ -117,22 +116,30 @@ public final class Ontology {
                 .collect(Collectors.toSet());
         eq.add(owlClass);
 
+        OWLDataFactory f = ontology.getOWLOntologyManager().getOWLDataFactory();
+        OWLClass thing = f.getOWLThing();
+        OWLClass nothing = f.getOWLNothing();
+
+        boolean isThing = eq.contains(thing);
+
+        if (isThing) {
+            EntitySearcher.getSuperClasses(thing, ontology)
+                    .filter(AsOWLClass::isOWLClass)
+                    .map(AsOWLClass::asOWLClass)
+                    .forEach(eq::add);
+        }
+
         if (eq.size() == 1) {
             ret = Collections.singletonList(owlClass);
+        } else if (eq.contains(nothing)) {
+            ret = isThing ? Arrays.asList(thing, nothing) : Collections.singletonList(nothing);
+        } else if (isThing) {
+            eq.remove(thing);
+            Stream<OWLClass> tmp = eq.stream().sorted(Comparator.comparing(c -> c.getIRI().toString()));
+            ret = Stream.concat(Stream.of(thing), tmp).collect(Collectors.toList());
+            eq.add(thing);
         } else {
-            OWLDataFactory f = ontology.getOWLOntologyManager().getOWLDataFactory();
-            OWLClass thing = f.getOWLThing();
-            OWLClass nothing = f.getOWLNothing();
-
-            if (eq.contains(nothing)) {
-                ret = Collections.singletonList(nothing);
-            } else if (eq.remove(thing)) {
-                Stream<OWLClass> tmp = eq.stream().sorted(Comparator.comparing(c -> c.getIRI().toString()));
-                ret = Stream.concat(Stream.of(thing), tmp).collect(Collectors.toList());
-                eq.add(thing);
-            } else {
-                ret = eq.stream().sorted(Comparator.comparing(c -> c.getIRI().toString())).collect(Collectors.toList());
-            }
+            ret = eq.stream().sorted(Comparator.comparing(c -> c.getIRI().toString())).collect(Collectors.toList());
         }
 
         for (OWLClass cls : eq) {
