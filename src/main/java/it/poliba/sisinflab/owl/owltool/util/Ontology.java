@@ -1,15 +1,31 @@
 package it.poliba.sisinflab.owl.owltool.util;
 
 import org.semanticweb.owlapi.apibinding.OWLManager;
-import org.semanticweb.owlapi.model.*;
+import org.semanticweb.owlapi.model.AsOWLClass;
+import org.semanticweb.owlapi.model.OWLClass;
+import org.semanticweb.owlapi.model.OWLClassExpression;
+import org.semanticweb.owlapi.model.OWLDataFactory;
+import org.semanticweb.owlapi.model.OWLDocumentFormat;
+import org.semanticweb.owlapi.model.OWLOntology;
+import org.semanticweb.owlapi.model.OWLOntologyCreationException;
+import org.semanticweb.owlapi.model.OWLOntologyManager;
+import org.semanticweb.owlapi.model.OWLOntologyStorageException;
+import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
 import org.semanticweb.owlapi.search.EntitySearcher;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -40,7 +56,7 @@ public final class Ontology {
             }
         }
 
-        try (OutputStream outStream = new FileOutputStream(path)) {
+        try (OutputStream outStream = Files.newOutputStream(Paths.get(path))) {
             mgr.saveOntology(onto, outputFormat, outStream);
         } catch (OWLOntologyStorageException ex) {
             throw new IOException(ex);
@@ -70,7 +86,7 @@ public final class Ontology {
         if (path == null) {
             stream = System.out;
         } else {
-            stream = new PrintStream(new FileOutputStream(path));
+            stream = new PrintStream(Files.newOutputStream(Paths.get(path)));
         }
 
         OWLClass thing = onto.getOWLOntologyManager().getOWLDataFactory().getOWLThing();

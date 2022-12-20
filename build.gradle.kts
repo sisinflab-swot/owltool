@@ -13,9 +13,9 @@ repositories {
 }
 
 dependencies {
-    implementation("net.sourceforge.owlapi", "owlapi-distribution", "5.1.17")
-    implementation("com.beust", "jcommander", "1.81")
-    implementation("org.slf4j", "slf4j-nop", "1.7.30")
+    implementation("net.sourceforge.owlapi", "owlapi-distribution", "5.1.20")
+    implementation("com.beust", "jcommander", "1.82")
+    implementation("org.slf4j", "slf4j-nop", "2.0.6")
 }
 
 configure<JavaPluginConvention> {
