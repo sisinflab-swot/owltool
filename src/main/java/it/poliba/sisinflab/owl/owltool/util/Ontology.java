@@ -11,6 +11,7 @@ import org.semanticweb.owlapi.model.OWLOntologyCreationException;
 import org.semanticweb.owlapi.model.OWLOntologyManager;
 import org.semanticweb.owlapi.model.OWLOntologyStorageException;
 import org.semanticweb.owlapi.model.OWLSubClassOfAxiom;
+import org.semanticweb.owlapi.model.OntologyConfigurator;
 import org.semanticweb.owlapi.search.EntitySearcher;
 
 import java.io.File;
@@ -34,6 +35,8 @@ public final class Ontology {
     public static OWLOntology load(String path) throws IOException {
         try {
             OWLOntologyManager manager = OWLManager.createOWLOntologyManager();
+            OntologyConfigurator config = manager.getOntologyConfigurator();
+            manager.setOntologyConfigurator(config.withRemapAllAnonymousIndividualsIds(false));
             return manager.loadOntologyFromOntologyDocument(new File(path));
         } catch (OWLOntologyCreationException ex) {
             throw new IOException(ex);
