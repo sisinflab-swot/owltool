@@ -40,5 +40,5 @@ tasks.build {
 }
 
 tasks.wrapper {
-    gradleVersion = "7.0.2"
+    gradleVersion = "8.2.1"
 }
