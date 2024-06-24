@@ -18,10 +18,6 @@ dependencies {
     implementation("org.slf4j", "slf4j-nop", "2.0.6")
 }
 
-configure<JavaPluginConvention> {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-}
-
 val fatJar = task("fatJar", type = Jar::class) {
     group = BasePlugin.BUILD_GROUP
     description = "Assembles a jar archive containing all classes, including those of dependencies."
@@ -40,5 +36,5 @@ tasks.build {
 }
 
 tasks.wrapper {
-    gradleVersion = "8.2.1"
+    gradleVersion = "8.8"
 }

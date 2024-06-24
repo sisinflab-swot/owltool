@@ -119,4 +119,5 @@ gradle-app.setting
 
 # Project-specific
 /.idea
+/.vscode
 /gradle*
