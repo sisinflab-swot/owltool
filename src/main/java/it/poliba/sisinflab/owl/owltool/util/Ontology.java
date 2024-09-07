@@ -52,18 +52,59 @@ public final class Ontology {
             outputFormat = OntologyFormat.getDocumentFormat(format);
 
             if (inputFormat != null &&
-                inputFormat.isPrefixOWLDocumentFormat() &&
-                outputFormat.isPrefixOWLDocumentFormat()) {
-                outputFormat.asPrefixOWLDocumentFormat()
-                            .copyPrefixesFrom(outputFormat.asPrefixOWLDocumentFormat());
+                    inputFormat.isPrefixOWLDocumentFormat() &&
+                    outputFormat.isPrefixOWLDocumentFormat()) {
+                outputFormat.asPrefixOWLDocumentFormat().copyPrefixesFrom(outputFormat.asPrefixOWLDocumentFormat());
             }
         }
 
-        try (OutputStream outStream = Files.newOutputStream(Paths.get(path))) {
-            mgr.saveOntology(onto, outputFormat, outStream);
+        try {
+            OutputStream stream = path == null ? System.out : Files.newOutputStream(Paths.get(path));
+            mgr.saveOntology(onto, outputFormat, stream);
         } catch (OWLOntologyStorageException ex) {
             throw new IOException(ex);
         }
+    }
+
+    public static void printMetadata(OWLOntology onto, String path) throws IOException {
+        final long axioms = onto.getAxiomCount();
+        final long classes = onto.classesInSignature().count();
+        final long datatypes = onto.datatypesInSignature().count();
+        final long namedInd = onto.individualsInSignature().count();
+        final long anonInd = onto.anonymousIndividuals().count();
+        final long objProp = onto.objectPropertiesInSignature().count();
+        final long dataProp = onto.dataPropertiesInSignature().count();
+        final long annotProp = onto.annotationPropertiesInSignature().count();
+
+        final long entities = classes + datatypes + namedInd + objProp + dataProp + annotProp;
+        final long primitives = entities + anonInd;
+        final long individuals = namedInd + anonInd;
+        final long logicalProp = objProp + dataProp;
+        final long prop = logicalProp + annotProp;
+
+        final List<Pair<String, Long>> metadata = List.of(
+                new Pair<>("axioms", axioms),
+                new Pair<>("classes", classes),
+                new Pair<>("datatypes", datatypes),
+                new Pair<>("named_individuals", namedInd),
+                new Pair<>("anonymous_individuals", anonInd),
+                new Pair<>("object_properties", objProp),
+                new Pair<>("data_properties", dataProp),
+                new Pair<>("annotation_properties", annotProp),
+                new Pair<>("primitives", primitives),
+                new Pair<>("entities", entities),
+                new Pair<>("individuals", individuals),
+                new Pair<>("logical_properties", logicalProp),
+                new Pair<>("properties", prop));
+
+        final List<String> metadataStrings = metadata.stream()
+                .map(p -> String.format("    \"%s\": %d", p.first, p.second))
+                .collect(Collectors.toList());
+
+        PrintStream stream = path == null ? System.out : new PrintStream(System.out);
+        stream.println("{");
+        stream.println(String.join(",\n", metadataStrings));
+        stream.println("}");
     }
 
     private static void addImplicitTopSubClassOfAxioms(OWLOntology onto, Map<OWLClass, List<OWLClass>> cache) {
@@ -72,10 +113,10 @@ public final class Ontology {
 
         onto.classesInSignature().forEach(c -> {
             List<OWLClass> eq = equivalentClassesForClass(c, onto, cache);
-            if (!eq.get(0).isOWLThing() && !eq.get(0).isOWLNothing() &&
+            if (!eq.get(0).isOWLThing() &&
+                    !eq.get(0).isOWLNothing() &&
                     !eq.stream().flatMap(onto::subClassAxiomsForSubClass).findAny().isPresent()) {
-                OWLSubClassOfAxiom axiom = factory.getOWLSubClassOfAxiom(eq.get(0), thing);
-                onto.addAxiom(axiom);
+                onto.addAxiom(factory.getOWLSubClassOfAxiom(eq.get(0), thing));
             }
         });
     }
@@ -84,26 +125,18 @@ public final class Ontology {
         Map<OWLClass, List<OWLClass>> cache = new HashMap<>();
         addImplicitTopSubClassOfAxioms(onto, cache);
 
-        PrintStream stream;
-
-        if (path == null) {
-            stream = System.out;
-        } else {
-            stream = new PrintStream(Files.newOutputStream(Paths.get(path)));
-        }
-
+        PrintStream stream = path == null ? System.out : new PrintStream(Files.newOutputStream(Paths.get(path)));
         OWLClass thing = onto.getOWLOntologyManager().getOWLDataFactory().getOWLThing();
         printSubTaxonomy(stream, thing, onto, 0, cache);
     }
 
-    private static void printSubTaxonomy(PrintStream stream, OWLClass owlClass,
-                                         OWLOntology ontology, int depth, Map<OWLClass,
-                                         List<OWLClass>> cache) {
+    private static void printSubTaxonomy(PrintStream stream, OWLClass owlClass, OWLOntology ontology, int depth,
+            Map<OWLClass, List<OWLClass>> cache) {
         List<OWLClass> equivalents = equivalentClassesForClass(owlClass, ontology, cache);
         OWLClass first = equivalents.get(0);
         if (first.isOWLNothing() || (first.isOWLThing() && depth > 0)) return;
 
-        for (int i = 0; i < depth; ++i) stream.print('\t');
+        for (int i = 0; i < depth; ++i) { stream.print('\t'); }
         stream.print(first.getIRI().toString());
 
         for (int i = 1; i < equivalents.size(); ++i) {
@@ -113,25 +146,20 @@ public final class Ontology {
 
         stream.println();
 
-        equivalents.stream()
-                   .flatMap(ontology::subClassAxiomsForSuperClass)
-                   .map(OWLSubClassOfAxiom::getSubClass)
-                   .filter(OWLClassExpression::isOWLClass)
-                   .map(c -> equivalentClassesForClass(c.asOWLClass(), ontology, cache).get(0))
-                   .distinct()
-                   .sorted(Comparator.comparing(c -> c.getIRI().toString()))
-                   .forEach(c -> printSubTaxonomy(stream, c, ontology, depth + 1, cache));
+        equivalents.stream().flatMap(ontology::subClassAxiomsForSuperClass)
+                .map(OWLSubClassOfAxiom::getSubClass).filter(OWLClassExpression::isOWLClass)
+                .map(c -> equivalentClassesForClass(c.asOWLClass(), ontology, cache).get(0))
+                .distinct().sorted(Comparator.comparing(c -> c.getIRI().toString()))
+                .forEach(c -> printSubTaxonomy(stream, c, ontology, depth + 1, cache));
     }
 
-    private static List<OWLClass> equivalentClassesForClass(OWLClass owlClass,
-                                                            OWLOntology ontology,
-                                                            Map<OWLClass, List<OWLClass>> cache) {
+    private static List<OWLClass> equivalentClassesForClass(OWLClass owlClass, OWLOntology ontology,
+            Map<OWLClass, List<OWLClass>> cache) {
         List<OWLClass> ret = cache.get(owlClass);
         if (ret != null) return ret;
 
         Set<OWLClass> eq = EntitySearcher.getEquivalentClasses(owlClass, ontology)
-                .filter(AsOWLClass::isOWLClass)
-                .map(AsOWLClass::asOWLClass)
+                .filter(AsOWLClass::isOWLClass).map(AsOWLClass::asOWLClass)
                 .collect(Collectors.toSet());
         eq.add(owlClass);
 
@@ -144,8 +172,7 @@ public final class Ontology {
         if (isThing) {
             EntitySearcher.getSuperClasses(thing, ontology)
                     .filter(AsOWLClass::isOWLClass)
-                    .map(AsOWLClass::asOWLClass)
-                    .forEach(eq::add);
+                    .map(AsOWLClass::asOWLClass).forEach(eq::add);
         }
 
         if (eq.size() == 1) {
@@ -158,15 +185,15 @@ public final class Ontology {
             ret = Stream.concat(Stream.of(thing), tmp).collect(Collectors.toList());
             eq.add(thing);
         } else {
-            ret = eq.stream().sorted(Comparator.comparing(c -> c.getIRI().toString())).collect(Collectors.toList());
+            ret = eq.stream()
+                    .sorted(Comparator.comparing(c -> c.getIRI().toString()))
+                    .collect(Collectors.toList());
         }
 
-        for (OWLClass cls : eq) {
-            cache.put(cls, ret);
-        }
+        for (OWLClass cls : eq) { cache.put(cls, ret); }
 
         return ret;
     }
 
-    private Ontology() { /* Disallow instantiation */ }
+    private Ontology() {}
 }

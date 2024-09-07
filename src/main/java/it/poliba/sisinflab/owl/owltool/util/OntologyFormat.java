@@ -25,17 +25,27 @@ final class OntologyFormat {
 
     static OWLDocumentFormat getDocumentFormat(String format) {
         switch (format) {
-        case DL: return new DLSyntaxDocumentFormat();
-        case FUNCTIONAL: return new FunctionalSyntaxDocumentFormat();
-        case KRSS: return new KRSSDocumentFormat();
-        case KRSS2: return new KRSS2DocumentFormat();
-        case MANCHESTER: return new ManchesterSyntaxDocumentFormat();
-        case OBO: return new OBODocumentFormat();
-        case OWLXML: return new OWLXMLDocumentFormat();
-        case TURTLE: return new TurtleDocumentFormat();
-        case RDFXML: default: return new RDFXMLDocumentFormat();
+        case DL:
+            return new DLSyntaxDocumentFormat();
+        case FUNCTIONAL:
+            return new FunctionalSyntaxDocumentFormat();
+        case KRSS:
+            return new KRSSDocumentFormat();
+        case KRSS2:
+            return new KRSS2DocumentFormat();
+        case MANCHESTER:
+            return new ManchesterSyntaxDocumentFormat();
+        case OBO:
+            return new OBODocumentFormat();
+        case OWLXML:
+            return new OWLXMLDocumentFormat();
+        case TURTLE:
+            return new TurtleDocumentFormat();
+        case RDFXML:
+        default:
+            return new RDFXMLDocumentFormat();
         }
     }
 
-    private OntologyFormat() { /* Disallow instantiation */ }
+    private OntologyFormat() {}
 }

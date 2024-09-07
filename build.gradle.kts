@@ -13,9 +13,9 @@ repositories {
 }
 
 dependencies {
-    implementation("net.sourceforge.owlapi", "owlapi-distribution", "5.1.20")
-    implementation("com.beust", "jcommander", "1.82")
-    implementation("org.slf4j", "slf4j-nop", "2.0.6")
+    implementation("net.sourceforge.owlapi", "owlapi-distribution", "5.5.1")
+    implementation("org.jcommander", "jcommander", "2.0")
+    implementation("org.slf4j", "slf4j-nop", "2.0.16")
 }
 
 val fatJar = task("fatJar", type = Jar::class) {
@@ -36,5 +36,5 @@ tasks.build {
 }
 
 tasks.wrapper {
-    gradleVersion = "8.8"
+    gradleVersion = "8.10"
 }
